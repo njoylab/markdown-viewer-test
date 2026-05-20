@@ -18,6 +18,9 @@ test("uploads and renders a markdown file", { timeout: 15000 }, async () => {
     await page.goto(appUrl);
     await page.locator("#file-input").setInputFiles(samplePath);
 
+    const uploadButton = page.locator(".upload-button");
+    await expectUploadAnimation(page, uploadButton);
+
     await assertVisibleText(page, "Release Notes");
     await assertVisibleText(page, "Highlights");
     await assertVisibleText(page, "Expected Result");
@@ -70,4 +73,32 @@ function contentType(filePath) {
 
 async function assertVisibleText(page, text) {
   assert.equal(await page.getByText(text, { exact: true }).isVisible(), true);
+}
+
+async function expectUploadAnimation(page, locator) {
+  await page.waitForFunction(() => {
+    const element = document.querySelector(".upload-button");
+    return element?.getAnimations().some(({ animationName }) => {
+      return animationName === "upload-pulse";
+    });
+  });
+
+  await locator.evaluate((element) => {
+    return new Promise((resolve, reject) => {
+      if (!element.classList.contains("is-uploading")) {
+        reject(new Error("Upload button did not enter uploading animation state"));
+        return;
+      }
+
+      const animation = element.getAnimations().find(({ animationName }) => {
+        return animationName === "upload-pulse";
+      });
+      if (!animation) {
+        reject(new Error("Upload button did not start upload-pulse animation"));
+        return;
+      }
+
+      animation.finished.then(resolve, reject);
+    });
+  });
 }
