@@ -18,3 +18,7 @@ npm test
 ```
 
 The agent can infer these commands from `package.json`, so a config does not need explicit `lintCommand` or `testCommand`.
+
+## E2E Fixture
+
+Use `test/fixtures/sample.md` as the upload file for browser/e2e checks.
