@@ -27,6 +27,10 @@ test("uploads and renders a markdown file", { timeout: 15000 }, async () => {
     assert.equal(await page.locator("a[href='https://example.com']").textContent(), "public link");
     assert.match(await page.locator("pre code").textContent(), /const status = "rendered";/);
     assert.equal(await page.locator("script", { hasText: "alert" }).count(), 0);
+    assert.equal(
+      await page.locator(".upload-button").evaluate((element) => getComputedStyle(element).backgroundColor),
+      "rgb(11, 87, 208)"
+    );
   } finally {
     await browser.close();
   }
