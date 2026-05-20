@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Markdown Viewer</title>
+    <link rel="stylesheet" href="./src/styles.css" />
+  </head>
+  <body>
+    <main class="shell">
+      <section class="toolbar" aria-label="Markdown upload">
+        <div>
+          <h1>Markdown Viewer</h1>
+          <p>Load a local Markdown file and preview it as formatted HTML.</p>
+        </div>
+        <label class="upload-button">
+          <span>Upload .md</span>
+          <input id="file-input" type="file" accept=".md,.markdown,text/markdown,text/plain" />
+        </label>
+      </section>
+
+      <section class="workspace">
+        <article id="preview" class="preview" aria-live="polite">
+          <h2>No file loaded</h2>
+          <p>Choose a Markdown file to render headings, lists, emphasis, links and code blocks.</p>
+        </article>
+      </section>
+    </main>
+
+    <script type="module" src="./src/app.js"></script>
+  </body>
+</html>
