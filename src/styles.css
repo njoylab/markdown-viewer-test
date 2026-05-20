@@ -47,17 +47,29 @@ h1 {
   color: #62666d;
 }
 
-.upload-button {
+.toolbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.upload-button,
+.reset-button {
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   min-height: 44px;
   padding: 0 18px;
-  border: 1px solid #0b57d0;
   border-radius: 6px;
-  background: #0b57d0;
-  color: #ffffff;
+  font: inherit;
   font-weight: 700;
   cursor: pointer;
+}
+
+.upload-button {
+  border: 1px solid #0b57d0;
+  background: #0b57d0;
+  color: #ffffff;
 }
 
 .upload-button input {
@@ -66,6 +78,18 @@ h1 {
   block-size: 1px;
   opacity: 0;
   pointer-events: none;
+}
+
+.reset-button {
+  border: 1px solid #c5c9d0;
+  background: #ffffff;
+  color: #202124;
+}
+
+.reset-button:hover,
+.reset-button:focus-visible {
+  border-color: #202124;
+  outline: none;
 }
 
 .workspace {
@@ -163,9 +187,10 @@ h1 {
     flex-direction: column;
   }
 
-  .upload-button {
+  .toolbar-actions,
+  .upload-button,
+  .reset-button {
     width: 100%;
-    justify-content: center;
   }
 
   .workspace {

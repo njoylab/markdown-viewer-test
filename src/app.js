@@ -2,6 +2,8 @@ import { renderMarkdown } from "./markdown.js";
 
 const input = document.querySelector("#file-input");
 const preview = document.querySelector("#preview");
+const resetButton = document.querySelector("#reset-button");
+const initialPreview = preview.innerHTML;
 const examples = {
   "release-notes": `# Release Notes
 
@@ -36,6 +38,13 @@ input.addEventListener("change", async () => {
 
   const markdown = await file.text();
   preview.innerHTML = renderMarkdown(markdown);
+  resetButton.hidden = false;
+});
+
+resetButton.addEventListener("click", () => {
+  input.value = "";
+  preview.innerHTML = initialPreview;
+  resetButton.hidden = true;
 });
 
 preview.addEventListener("click", (event) => {

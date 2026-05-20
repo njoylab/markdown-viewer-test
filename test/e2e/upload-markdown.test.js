@@ -39,17 +39,27 @@ test("uploads and renders a markdown file", { timeout: 15000 }, async () => {
   await routeStaticFiles(page);
   try {
     await page.goto(appUrl);
+    await assertHiddenText(page, "Reset");
+
     await page.locator("#file-input").setInputFiles(samplePath);
 
     await assertVisibleText(page, "Release Notes");
     await assertVisibleText(page, "Highlights");
     await assertVisibleText(page, "Expected Result");
+    await assertVisibleText(page, "Reset");
 
     assert.equal(await page.locator("strong").textContent(), "bold text");
     assert.equal(await page.locator("em").textContent(), "italic text");
     assert.equal(await page.locator("a[href='https://example.com']").textContent(), "public link");
     assert.match(await page.locator("pre code").textContent(), /const status = "rendered";/);
     assert.equal(await page.locator("script", { hasText: "alert" }).count(), 0);
+
+    await page.getByRole("button", { name: "Reset" }).click();
+
+    await assertVisibleText(page, "Ready to preview Markdown");
+    await assertVisibleText(page, "Try an example");
+    await assertHiddenText(page, "Reset");
+    assert.equal(await page.getByText("Expected Result", { exact: true }).count(), 0);
   } finally {
     await browser.close();
   }
@@ -93,4 +103,8 @@ function contentType(filePath) {
 
 async function assertVisibleText(page, text) {
   assert.equal(await page.getByText(text, { exact: true }).isVisible(), true);
+}
+
+async function assertHiddenText(page, text) {
+  assert.equal(await page.getByText(text, { exact: true }).isVisible(), false);
 }
