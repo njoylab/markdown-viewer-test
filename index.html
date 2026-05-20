@@ -14,10 +14,13 @@
           <h1>Markdown Viewer</h1>
           <p>Load a local Markdown file and preview it as formatted HTML.</p>
         </div>
-        <label class="upload-button">
-          <span>Upload .md</span>
-          <input id="file-input" type="file" accept=".md,.markdown,text/markdown,text/plain" />
-        </label>
+        <div class="toolbar-actions">
+          <label class="upload-button">
+            <span>Upload .md</span>
+            <input id="file-input" type="file" accept=".md,.markdown,text/markdown,text/plain" />
+          </label>
+          <button id="reset-button" class="reset-button" type="button" hidden>Reset</button>
+        </div>
       </section>
 
       <section class="workspace">
