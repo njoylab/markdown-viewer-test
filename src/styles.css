@@ -60,12 +60,43 @@ h1 {
   cursor: pointer;
 }
 
+.upload-button--animating {
+  animation: upload-confirm 1200ms ease-out;
+}
+
 .upload-button input {
   position: absolute;
   inline-size: 1px;
   block-size: 1px;
   opacity: 0;
   pointer-events: none;
+}
+
+@keyframes upload-confirm {
+  0% {
+    transform: scale(1);
+    box-shadow: 0 0 0 0 rgb(32 33 36 / 22%);
+  }
+
+  35% {
+    transform: scale(1.05);
+    box-shadow: 0 0 0 8px rgb(11 87 208 / 18%);
+  }
+
+  80% {
+    transform: scale(1.03);
+    box-shadow: 0 0 0 12px rgb(11 87 208 / 14%);
+  }
+
+  92% {
+    transform: scale(1.04);
+    box-shadow: 0 0 0 12px rgb(11 87 208 / 16%);
+  }
+
+  100% {
+    transform: scale(1);
+    box-shadow: 0 0 0 0 rgb(32 33 36 / 0%);
+  }
 }
 
 .workspace {

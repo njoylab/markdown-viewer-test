@@ -18,6 +18,7 @@ test("uploads and renders a markdown file", { timeout: 15000 }, async () => {
     await page.goto(appUrl);
     await page.locator("#file-input").setInputFiles(samplePath);
 
+    assert.equal(await currentButtonAnimation(page), "upload-confirm");
     await assertVisibleText(page, "Release Notes");
     await assertVisibleText(page, "Highlights");
     await assertVisibleText(page, "Expected Result");
@@ -70,4 +71,10 @@ function contentType(filePath) {
 
 async function assertVisibleText(page, text) {
   assert.equal(await page.getByText(text, { exact: true }).isVisible(), true);
+}
+
+async function currentButtonAnimation(page) {
+  return page.locator(".upload-button").evaluate((button) => {
+    return getComputedStyle(button).animationName;
+  });
 }
