@@ -10,6 +10,29 @@ const repoRoot = resolve(testDir, "../..");
 const samplePath = join(repoRoot, "test/fixtures/sample.md");
 const appUrl = "http://markdown-viewer.test/";
 
+test("shows examples on empty load and renders a selected example", { timeout: 15000 }, async () => {
+  const browser = await chromium.launch({ headless: true });
+  const page = await browser.newPage();
+  await routeStaticFiles(page);
+  try {
+    await page.goto(appUrl);
+
+    await assertVisibleText(page, "Try an example");
+    await assertVisibleText(page, "Release notes");
+    await assertVisibleText(page, "Project plan");
+    await assertVisibleText(page, "Technical note");
+
+    await page.getByRole("button", { name: "Technical note" }).click();
+
+    await assertVisibleText(page, "Technical Note");
+    await assertVisibleText(page, "Use inline code for commands and fenced blocks for snippets.");
+    assert.match(await page.locator("pre code").textContent(), /const status = "ready";/);
+    assert.equal(await page.getByText("No file loaded", { exact: true }).count(), 0);
+  } finally {
+    await browser.close();
+  }
+});
+
 test("uploads and renders a markdown file", { timeout: 15000 }, async () => {
   const browser = await chromium.launch({ headless: true });
   const page = await browser.newPage();
