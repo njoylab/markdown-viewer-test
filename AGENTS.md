@@ -30,3 +30,5 @@ Recent commits use short imperative summaries, for example `Add markdown upload 
 ## Agent-Specific Instructions
 
 Before editing, inspect the affected source and tests. Keep patches small, avoid broad refactors, and do not introduce package dependencies for simple parser or fixture changes. Always report which checks were run and any checks skipped.
+
+For the GitHub issue bugfix agent workflow, use `/Users/emln/dev/b4i/ht_llm/configs/markdown-viewer-local.json` as the config path for this fixture.
