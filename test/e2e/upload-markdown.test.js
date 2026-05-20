@@ -102,9 +102,13 @@ function contentType(filePath) {
 }
 
 async function assertVisibleText(page, text) {
-  assert.equal(await page.getByText(text, { exact: true }).isVisible(), true);
+  const locator = page.getByText(text, { exact: true });
+  await locator.waitFor({ state: "visible" });
+  assert.equal(await locator.isVisible(), true);
 }
 
 async function assertHiddenText(page, text) {
-  assert.equal(await page.getByText(text, { exact: true }).isVisible(), false);
+  const locator = page.getByText(text, { exact: true });
+  await locator.waitFor({ state: "hidden" });
+  assert.equal(await locator.isVisible(), false);
 }

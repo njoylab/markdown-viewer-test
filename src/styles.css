@@ -92,6 +92,10 @@ h1 {
   outline: none;
 }
 
+.reset-button[hidden] {
+  display: none;
+}
+
 .workspace {
   min-height: 66vh;
   padding: 28px;
