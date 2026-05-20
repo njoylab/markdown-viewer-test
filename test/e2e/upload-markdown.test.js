@@ -32,6 +32,23 @@ test("uploads and renders a markdown file", { timeout: 15000 }, async () => {
   }
 });
 
+test("renders upload button in blue", { timeout: 15000 }, async () => {
+  const browser = await chromium.launch({ headless: true });
+  const page = await browser.newPage();
+  await routeStaticFiles(page);
+  try {
+    await page.goto(appUrl);
+
+    const buttonColor = await page.locator(".upload-button").evaluate((button) => {
+      return getComputedStyle(button).backgroundColor;
+    });
+
+    assert.equal(buttonColor, "rgb(11, 87, 208)");
+  } finally {
+    await browser.close();
+  }
+});
+
 async function routeStaticFiles(page) {
   await page.route("**/*", async (route) => {
     const url = new URL(route.request().url());
