@@ -162,7 +162,19 @@ body.is-dragging::after {
 .toolbar-actions {
   display: flex;
   flex-wrap: wrap;
+  align-items: center;
   gap: 10px;
+}
+
+.doc-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+
+.doc-actions[hidden] {
+  display: none;
 }
 
 h1,
@@ -219,22 +231,50 @@ h1 {
   pointer-events: none;
 }
 
-.theme-toggle {
+.icon-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   min-height: 44px;
-  padding: 0 16px;
+  min-width: 44px;
+  padding: 0 10px;
   border: 1px solid var(--border);
   border-radius: 6px;
   background: var(--surface);
   color: var(--text);
   font: inherit;
-  font-weight: 700;
   cursor: pointer;
 }
 
-.theme-toggle:hover,
-.theme-toggle:focus-visible {
+.icon-button:hover,
+.icon-button:focus-visible {
   border-color: var(--border-strong);
   outline: none;
+}
+
+.icon-button[aria-pressed="true"] {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.icon {
+  width: 20px;
+  height: 20px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.icon-moon,
+.icon-sun {
+  display: none;
+}
+
+:root[data-theme="light"] .theme-toggle .icon-moon,
+:root[data-theme="dark"] .theme-toggle .icon-sun {
+  display: block;
 }
 
 @keyframes upload-pulse {

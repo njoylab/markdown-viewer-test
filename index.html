@@ -33,15 +33,47 @@
           <p id="status" class="status" role="status" hidden></p>
         </div>
         <div class="toolbar-actions">
-          <button id="theme-toggle" class="theme-toggle" type="button" aria-pressed="false">Dark mode</button>
-          <div class="text-size" role="group" aria-label="Text size">
-            <button id="text-smaller" class="text-size-button" type="button" title="Smaller text (-)" aria-label="Smaller text">A&minus;</button>
-            <button id="text-bigger" class="text-size-button" type="button" title="Bigger text (+)" aria-label="Bigger text">A+</button>
+          <button id="theme-toggle" class="icon-button theme-toggle" type="button" title="Dark mode" aria-label="Switch to dark mode" aria-pressed="false">
+            <svg class="icon icon-moon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+              <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79Z" />
+            </svg>
+            <svg class="icon icon-sun" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+              <circle cx="12" cy="12" r="4" />
+              <path d="M12 2v2m0 16v2M4.93 4.93l1.41 1.41m11.32 11.32 1.41 1.41M2 12h2m16 0h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41" />
+            </svg>
+          </button>
+          <div class="doc-actions" id="doc-actions" hidden>
+            <div class="text-size" role="group" aria-label="Text size">
+              <button id="text-smaller" class="text-size-button" type="button" title="Smaller text (-)" aria-label="Smaller text">A&minus;</button>
+              <button id="text-bigger" class="text-size-button" type="button" title="Bigger text (+)" aria-label="Bigger text">A+</button>
+            </div>
+            <button id="toc-toggle" class="icon-button" type="button" title="Outline" aria-label="Toggle outline" aria-pressed="false" aria-controls="outline">
+              <svg class="icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                <path d="M8 6h13M8 12h13M8 18h13" />
+                <circle cx="3.5" cy="6" r="1.5" />
+                <circle cx="3.5" cy="12" r="1.5" />
+                <circle cx="3.5" cy="18" r="1.5" />
+              </svg>
+            </button>
+            <button id="copy-html" class="icon-button" type="button" title="Copy HTML" aria-label="Copy HTML">
+              <svg class="icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                <rect x="9" y="9" width="12" height="12" rx="2" />
+                <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+              </svg>
+            </button>
+            <button id="print" class="icon-button" type="button" title="Print" aria-label="Print">
+              <svg class="icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                <path d="M6 9V3h12v6" />
+                <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2" />
+                <rect x="6" y="14" width="12" height="8" rx="1" />
+              </svg>
+            </button>
+            <button id="clear" class="icon-button" type="button" title="Clear" aria-label="Clear document">
+              <svg class="icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                <path d="M3 6h18M8 6V4h8v2M18.5 6l-1 14h-11l-1-14" />
+              </svg>
+            </button>
           </div>
-          <button id="toc-toggle" class="theme-toggle" type="button" aria-pressed="false" aria-controls="outline">Outline</button>
-          <button id="copy-html" class="theme-toggle" type="button">Copy HTML</button>
-          <button id="print" class="theme-toggle" type="button">Print</button>
-          <button id="clear" class="theme-toggle" type="button">Clear</button>
           <label class="upload-button">
             <span>Upload .md</span>
             <input id="file-input" type="file" accept=".md,.markdown,text/markdown,text/plain" />

@@ -37,6 +37,7 @@ const printButton = document.querySelector("#print");
 const clearButton = document.querySelector("#clear");
 const textBigger = document.querySelector("#text-bigger");
 const textSmaller = document.querySelector("#text-smaller");
+const docActions = document.querySelector("#doc-actions");
 const shortcutList = document.querySelector("#shortcut-list");
 const placeholderHtml = preview.innerHTML;
 const SCROLL_OFFSET = 96;
@@ -99,6 +100,10 @@ let toc = [];
 let activeId = "";
 let outlineDismissed = false;
 
+function setDocActionsVisible(hasDocument) {
+  docActions.hidden = !hasDocument;
+}
+
 function showError(message) {
   uploadError.textContent = message;
   uploadError.hidden = false;
@@ -139,6 +144,8 @@ function showMarkdown(nextMarkdown, name = "", options = {}) {
     storeDocument(storage, markdown, documentName);
   }
 
+  setDocActionsVisible(markdown !== "");
+
   renderOutline();
   scrollToHash(window.location.hash, { smooth: false });
   spyPausedUntil = 0;
@@ -164,6 +171,7 @@ function resetDocument() {
   document.title = "Markdown Viewer";
   clearDocument(storage);
   history.replaceState(null, "", `${location.pathname}${location.search}`);
+  setDocActionsVisible(false);
   renderOutline();
   showStatus("Cleared the stored document.");
 }
@@ -439,9 +447,10 @@ applyTheme(theme, document.documentElement);
 function syncTheme(next) {
   theme = next;
   applyTheme(theme, document.documentElement);
-  themeToggle.textContent = theme === "dark" ? "Light mode" : "Dark mode";
+  const label = `Switch to ${theme === "dark" ? "light" : "dark"} mode`;
   themeToggle.setAttribute("aria-pressed", String(theme === "dark"));
-  themeToggle.setAttribute("aria-label", `Switch to ${theme === "dark" ? "light" : "dark"} mode`);
+  themeToggle.setAttribute("aria-label", label);
+  themeToggle.title = label;
 }
 
 themeToggle.addEventListener("click", () => {

@@ -76,10 +76,28 @@ test("clears the stored document and the hash", { timeout: 20000 }, async () => 
   }
 });
 
+test("shows the document actions only while a document is loaded", { timeout: 20000 }, async () => {
+  const { browser, page } = await openPage();
+  try {
+    assert.equal(await page.locator("#doc-actions").isVisible(), false);
+
+    await paste(page, "# Loaded\n\nBody.");
+
+    assert.equal(await page.locator("#doc-actions").isVisible(), true);
+
+    await page.locator("#clear").click();
+
+    assert.equal(await page.locator("#doc-actions").isVisible(), false);
+  } finally {
+    await browser.close();
+  }
+});
+
 test("changes and remembers the text size", { timeout: 20000 }, async () => {
   const { browser, page } = await openPage();
   try {
     assert.equal(await page.evaluate(() => document.documentElement.dataset.fontSize), "medium");
+    await paste(page, "# Loaded\n\nBody.");
 
     await page.locator("#text-bigger").click();
 

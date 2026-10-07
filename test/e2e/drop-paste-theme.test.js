@@ -53,12 +53,12 @@ test("toggles dark mode and remembers the choice", { timeout: 15000 }, async () 
   const { browser, page } = await openPage();
   try {
     const toggle = page.locator("#theme-toggle");
-    await assertVisibleText(page, "Dark mode");
+    assert.equal(await toggle.getAttribute("aria-label"), "Switch to dark mode");
 
     await toggle.click();
 
     assert.equal(await page.evaluate(() => document.documentElement.dataset.theme), "dark");
-    assert.equal(await toggle.textContent(), "Light mode");
+    assert.equal(await toggle.getAttribute("aria-label"), "Switch to light mode");
     assert.equal(await page.evaluate(() => localStorage.getItem("md-viewer-theme")), "dark");
 
     await page.reload();
