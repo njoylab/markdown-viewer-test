@@ -3,6 +3,7 @@ import { renderMarkdown } from "./markdown.js";
 const input = document.querySelector("#file-input");
 const uploadButton = document.querySelector(".upload-button");
 const preview = document.querySelector("#preview");
+const uploadError = document.querySelector("#upload-error");
 const examples = {
   "release-notes": `# Release Notes
 
@@ -29,17 +30,52 @@ const status = "ready";
 \`\`\``
 };
 
-input.addEventListener("change", async () => {
-  const file = input.files?.[0];
-  if (!file) {
-    return;
-  }
+function showError(message) {
+  uploadError.textContent = message;
+  uploadError.hidden = false;
+}
 
-  const markdown = await file.text();
+function clearError() {
+  uploadError.textContent = "";
+  uploadError.hidden = true;
+}
+
+function showMarkdown(markdown) {
   preview.innerHTML = renderMarkdown(markdown);
   uploadButton.classList.remove("is-uploading");
   void uploadButton.offsetWidth;
   uploadButton.classList.add("is-uploading");
+}
+
+function isMarkdownFile(file) {
+  if (/\.(md|markdown|txt)$/i.test(file.name)) {
+    return true;
+  }
+  return file.type === "text/markdown" || file.type === "text/plain";
+}
+
+input.addEventListener("change", async () => {
+  const file = input.files?.[0];
+  input.value = "";
+  if (!file) {
+    return;
+  }
+
+  clearError();
+  if (!isMarkdownFile(file)) {
+    showError("Choose a Markdown file (.md, .markdown or .txt).");
+    return;
+  }
+
+  let markdown;
+  try {
+    markdown = await file.text();
+  } catch {
+    showError("The file could not be read.");
+    return;
+  }
+
+  showMarkdown(markdown);
 });
 
 preview.addEventListener("click", (event) => {
@@ -57,5 +93,6 @@ preview.addEventListener("click", (event) => {
     return;
   }
 
+  clearError();
   preview.innerHTML = renderMarkdown(markdown);
 });

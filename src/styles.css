@@ -47,6 +47,12 @@ h1 {
   color: #62666d;
 }
 
+.upload-error {
+  margin-top: 8px;
+  color: #b3261e;
+  font-weight: 600;
+}
+
 .upload-button {
   display: inline-flex;
   align-items: center;
