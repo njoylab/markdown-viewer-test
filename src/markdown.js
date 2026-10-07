@@ -1,5 +1,13 @@
+const TOKEN_START = "\uE000";
+const TOKEN_END = "\uE001";
+const TOKEN_PATTERN = /\uE000(\d+)\uE001/g;
+const CONTROL_CHARS = /[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F\uE000\uE001]/g;
+const FENCE = /^( {0,3})(`{3,}|~{3,})[ \t]*(.*)$/;
+const INDENTED_CODE = /^(?: {4}|\t)/;
+const LINK = /\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)/g;
+
 export function renderMarkdown(markdown) {
-  const lines = markdown.replace(/\0/g, "").replace(/\r\n?/g, "\n").split("\n");
+  const lines = String(markdown).replace(/\r\n?/g, "\n").replace(CONTROL_CHARS, "").split("\n");
   const blocks = [];
   let list = null;
   let code = null;
@@ -16,7 +24,10 @@ export function renderMarkdown(markdown) {
 
   const closeCode = () => {
     if (code) {
-      blocks.push(`<pre><code>${escapeHtml(code.lines.join("\n"))}</code></pre>`);
+      const body = code.indented ? trimTrailingBlankLines(code.lines) : code.lines;
+      if (body.length > 0) {
+        blocks.push(`<pre><code>${escapeHtml(body.join("\n"))}</code></pre>`);
+      }
       code = null;
     }
   };
@@ -42,18 +53,33 @@ export function renderMarkdown(markdown) {
   };
 
   for (const line of lines) {
-    if (line.startsWith("```")) {
-      if (code) {
+    if (code) {
+      if (isFenceClose(line, code)) {
         closeCode();
-      } else {
-        closeText();
-        code = { lines: [] };
+        continue;
       }
+      if (!code.indented || line.trim() === "" || INDENTED_CODE.test(line)) {
+        code.lines.push(code.indented ? dedentIndented(line) : line);
+        continue;
+      }
+      closeCode();
+    }
+
+    const fence = FENCE.exec(line);
+    if (fence) {
+      closeText();
+      code = {
+        marker: fence[2][0],
+        length: fence[2].length,
+        lines: [],
+        indented: false
+      };
       continue;
     }
 
-    if (code) {
-      code.lines.push(line);
+    if (INDENTED_CODE.test(line) && paragraph.length === 0 && quote.length === 0) {
+      closeList();
+      code = { marker: "", length: 0, lines: [dedentIndented(line)], indented: true };
       continue;
     }
 
@@ -118,17 +144,42 @@ function formatInline(value) {
   const tokens = [];
   const stash = (html) => {
     tokens.push(html);
-    return "\0" + (tokens.length - 1) + "\0";
+    return TOKEN_START + (tokens.length - 1) + TOKEN_END;
   };
 
-  let text = escapeHtml(value);
-  text = text.replace(/`([^`]+)`/g, (match, content) => stash(`<code>${content}</code>`));
-  text = text.replace(/\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)/g, (match, label, url) =>
-    stash(`<a href="${url}" rel="noreferrer">${applyEmphasis(label)}</a>`)
-  );
-  text = applyEmphasis(text);
+  const text = [];
+  let plain = "";
+  let index = 0;
 
-  return restoreTokens(text, tokens);
+  const flush = () => {
+    if (plain.length > 0) {
+      text.push(escapeHtml(plain));
+      plain = "";
+    }
+  };
+
+  while (index < value.length) {
+    if (value[index] === "`") {
+      const openLength = readDelimiterRun(value, index, "`");
+      const closeIndex = findClosingRun(value, index + openLength, openLength);
+      if (closeIndex !== -1) {
+        flush();
+        const content = value.slice(index + openLength, closeIndex);
+        text.push(stash(`<code>${escapeHtml(normalizeCodeSpan(content))}</code>`));
+        index = closeIndex + openLength;
+        continue;
+      }
+    }
+    plain += value[index];
+    index += 1;
+  }
+  flush();
+
+  const inline = text
+    .join("")
+    .replace(LINK, (match, label, url) => stash(`<a href="${url}" rel="noreferrer">${applyEmphasis(label)}</a>`));
+
+  return restoreTokens(applyEmphasis(inline), tokens);
 }
 
 function applyEmphasis(text) {
@@ -138,7 +189,7 @@ function applyEmphasis(text) {
 }
 
 function restoreTokens(text, tokens) {
-  return text.replace(/\0(\d+)\0/g, (match, index) => restoreTokens(tokens[Number(index)], tokens));
+  return text.replace(TOKEN_PATTERN, (match, index) => restoreTokens(tokens[Number(index)], tokens));
 }
 
 function escapeHtml(value) {
@@ -146,5 +197,70 @@ function escapeHtml(value) {
     .replaceAll("&", "&amp;")
     .replaceAll("<", "&lt;")
     .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;");
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#39;");
+}
+
+function stripControlChars(value) {
+  return value.replace(CONTROL_CHARS, "");
+}
+
+function readDelimiterRun(value, index, delimiter) {
+  let size = 0;
+  while (value[index + size] === delimiter) {
+    size += 1;
+  }
+  return size;
+}
+
+function findClosingRun(value, from, length) {
+  let index = from;
+  while (index < value.length) {
+    if (value[index] === "`") {
+      const size = readDelimiterRun(value, index, "`");
+      if (size === length) {
+        return index;
+      }
+      index += size;
+      continue;
+    }
+    index += 1;
+  }
+  return -1;
+}
+
+function normalizeCodeSpan(content) {
+  const stripped = stripControlChars(content);
+  if (stripped.length > 2 && stripped.startsWith(" ") && stripped.endsWith(" ") && stripped.trim().length > 0) {
+    return stripped.slice(1, -1);
+  }
+  return stripped;
+}
+
+function isFenceClose(line, code) {
+  const match = FENCE.exec(line);
+  if (!match) {
+    return false;
+  }
+  const marker = match[2];
+  const sameKind = marker[0] === code.marker && marker.length >= code.length;
+  if (!sameKind) {
+    return false;
+  }
+  return code.marker !== "`" || match[3].trim() === "";
+}
+
+function dedentIndented(line) {
+  if (line.startsWith("\t")) {
+    return line.slice(1);
+  }
+  return line.replace(/^ {1,4}/, "");
+}
+
+function trimTrailingBlankLines(lines) {
+  let end = lines.length;
+  while (end > 0 && lines[end - 1].trim() === "") {
+    end -= 1;
+  }
+  return lines.slice(0, end);
 }

@@ -69,3 +69,94 @@ test("ignores unsafe link schemes", () => {
 
   assert.equal(html, "<p>[x](javascript:alert(1))</p>");
 });
+
+test("escapes html that could inject attributes or handlers", () => {
+  const html = renderMarkdown('<img src=x onerror="alert(1)">');
+
+  assert.equal(html, "<p>&lt;img src=x onerror=&quot;alert(1)&quot;&gt;</p>");
+  assert.doesNotMatch(html, /<img/);
+});
+
+test("cannot break out of a link href attribute", () => {
+  const html = renderMarkdown('[x](https://x.com" onmouseover="alert(1))');
+
+  assert.equal(html, "<p>[x](https://x.com&quot; onmouseover=&quot;alert(1))</p>");
+  assert.doesNotMatch(html, /onmouseover="alert/);
+});
+
+test("escapes single quotes used to break out of attributes", () => {
+  const html = renderMarkdown("<p class='x'>hi</p>");
+
+  assert.equal(html, "<p>&lt;p class=&#39;x&#39;&gt;hi&lt;/p&gt;</p>");
+});
+
+test("escapes html inside headings, list items and quotes", () => {
+  const html = renderMarkdown("# <b>a</b>\n\n- <i>b</i>\n\n> <svg onload=alert(1)>");
+
+  assert.equal(
+    html,
+    "<h1>&lt;b&gt;a&lt;/b&gt;</h1>\n<ul><li>&lt;i&gt;b&lt;/i&gt;</li></ul>\n" +
+      "<blockquote><p>&lt;svg onload=alert(1)&gt;</p></blockquote>"
+  );
+});
+
+test("never emits a raw script or event handler tag", () => {
+  const samples = [
+    "<script>alert(1)</script>",
+    "# <script>alert(1)</script>",
+    "- <script>alert(1)</script>",
+    "> <script>alert(1)</script>",
+    "[a](https://x.com) <script>alert(1)</script>",
+    "**<script>alert(1)</script>**",
+    "`<script>alert(1)</script>`",
+    "~~~html\n<script>alert(1)</script>\n~~~",
+    "    <script>alert(1)</script>"
+  ];
+
+  for (const sample of samples) {
+    const html = renderMarkdown(sample);
+    assert.doesNotMatch(html, /<script/i, `sample: ${sample}`);
+    assert.doesNotMatch(html, /\son\w+=/i, `sample: ${sample}`);
+  }
+});
+
+test("strips control characters and forged token placeholders", () => {
+  const html = renderMarkdown("a\u0000b\uE0000\uE001 *bold*");
+
+  assert.equal(html, "<p>ab0 <em>bold</em></p>");
+});
+
+test("renders tilde fenced code blocks", () => {
+  assert.equal(renderMarkdown("~~~js\nconst value = 1;\n~~~"), "<pre><code>const value = 1;</code></pre>");
+  assert.equal(
+    renderMarkdown("~~~~\nlonger fence\n~~~~"),
+    "<pre><code>longer fence</code></pre>"
+  );
+});
+
+test("keeps a different fence marker literal inside a code block", () => {
+  assert.equal(
+    renderMarkdown("```\n~~~\nliteral\n~~~\n```"),
+    "<pre><code>~~~\nliteral\n~~~</code></pre>"
+  );
+});
+
+test("renders indented code blocks and keeps consecutive blocks together", () => {
+  assert.equal(
+    renderMarkdown("    first\n    second\n\nafter"),
+    "<pre><code>first\nsecond</code></pre>\n<p>after</p>"
+  );
+  assert.equal(
+    renderMarkdown("    one\n\n    two"),
+    "<pre><code>one\n\ntwo</code></pre>"
+  );
+});
+
+test("does not turn indented paragraph continuations into code", () => {
+  assert.equal(renderMarkdown("line one\n    line two"), "<p>line one\n    line two</p>");
+});
+
+test("renders code spans delimited by longer backtick runs", () => {
+  assert.equal(renderMarkdown("`` a ` b ``"), "<p><code>a ` b</code></p>");
+  assert.equal(renderMarkdown("`inline`"), "<p><code>inline</code></p>");
+});
