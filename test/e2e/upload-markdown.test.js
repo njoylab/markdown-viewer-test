@@ -1,9 +1,10 @@
 import { readFile, stat } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
-import { dirname, join, resolve } from "node:path";
+import { dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
 import assert from "node:assert/strict";
 import test from "node:test";
 import { chromium } from "playwright";
+import { contentType } from "../../scripts/content-type.mjs";
 
 const testDir = dirname(fileURLToPath(import.meta.url));
 const repoRoot = resolve(testDir, "../..");
@@ -63,7 +64,8 @@ async function routeStaticFiles(page) {
     const url = new URL(route.request().url());
     const pathname = url.pathname === "/" ? "/index.html" : url.pathname;
     const filePath = resolve(repoRoot, `.${pathname}`);
-    if (!filePath.startsWith(repoRoot)) {
+    const escaped = relative(repoRoot, filePath);
+    if (escaped === ".." || escaped.startsWith(`..${sep}`) || isAbsolute(escaped)) {
       await route.fulfill({ status: 403, body: "Forbidden" });
       return;
     }
@@ -82,16 +84,6 @@ async function routeStaticFiles(page) {
       await route.fulfill({ status: 404, body: "Not found" });
     }
   });
-}
-
-function contentType(filePath) {
-  if (filePath.endsWith(".css")) {
-    return "text/css";
-  }
-  if (filePath.endsWith(".js")) {
-    return "text/javascript";
-  }
-  return "text/html";
 }
 
 async function assertVisibleText(page, text) {

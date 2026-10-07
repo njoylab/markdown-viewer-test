@@ -1,35 +1,32 @@
 import { createReadStream } from "node:fs";
-import { stat } from "node:fs/promises";
+import { realpath, stat } from "node:fs/promises";
 import { createServer } from "node:http";
-import { extname, join, normalize } from "node:path";
+import { isAbsolute, join, normalize, relative, sep } from "node:path";
+import { contentType } from "./content-type.mjs";
 
-const root = process.cwd();
+const root = await realpath(process.cwd());
 const port = Number(process.env.PORT ?? 3000);
 
-const mimeTypes = {
-  ".css": "text/css; charset=utf-8",
-  ".html": "text/html; charset=utf-8",
-  ".js": "text/javascript; charset=utf-8"
-};
-
 createServer(async (request, response) => {
-  const requestPath = normalize(decodeURIComponent(new URL(request.url ?? "/", `http://127.0.0.1:${port}`).pathname));
-  const relativePath = requestPath === "/" ? "index.html" : requestPath.slice(1);
-  const filePath = join(root, relativePath);
-
-  if (!filePath.startsWith(root)) {
-    response.writeHead(403);
-    response.end("Forbidden");
-    return;
-  }
-
   try {
-    const fileStat = await stat(filePath);
+    const requestPath = normalize(decodeURIComponent(new URL(request.url ?? "/", `http://127.0.0.1:${port}`).pathname));
+    const relativePath = requestPath === "/" ? "index.html" : requestPath.slice(1);
+    const realPath = await realpath(join(root, relativePath));
+    const escaped = relative(root, realPath);
+
+    if (escaped === ".." || escaped.startsWith(`..${sep}`) || isAbsolute(escaped)) {
+      response.writeHead(403);
+      response.end("Forbidden");
+      return;
+    }
+
+    const fileStat = await stat(realPath);
     if (!fileStat.isFile()) {
       throw new Error("Not a file");
     }
-    response.setHeader("content-type", mimeTypes[extname(filePath)] ?? "application/octet-stream");
-    createReadStream(filePath).pipe(response);
+
+    response.setHeader("content-type", contentType(realPath));
+    createReadStream(realPath).pipe(response);
   } catch {
     response.writeHead(404);
     response.end("Not found");
