@@ -1,14 +1,15 @@
-const blockTags = new Set(["h1", "h2", "h3", "pre", "ul", "ol", "p"]);
-
 export function renderMarkdown(markdown) {
-  const lines = markdown.replace(/\r\n?/g, "\n").split("\n");
+  const lines = markdown.replace(/\0/g, "").replace(/\r\n?/g, "\n").split("\n");
   const blocks = [];
   let list = null;
   let code = null;
+  let paragraph = [];
+  let quote = [];
 
   const closeList = () => {
     if (list) {
-      blocks.push(`<${list.type}>${list.items.map((item) => `<li>${formatInline(item)}</li>`).join("")}</${list.type}>`);
+      const attr = list.type === "ol" && list.start > 1 ? ` start="${list.start}"` : "";
+      blocks.push(`<${list.type}${attr}>${list.items.map((item) => `<li>${formatInline(item)}</li>`).join("")}</${list.type}>`);
       list = null;
     }
   };
@@ -20,12 +21,32 @@ export function renderMarkdown(markdown) {
     }
   };
 
+  const closeParagraph = () => {
+    if (paragraph.length > 0) {
+      blocks.push(`<p>${formatInline(paragraph.join("\n"))}</p>`);
+      paragraph = [];
+    }
+  };
+
+  const closeQuote = () => {
+    if (quote.length > 0) {
+      blocks.push(`<blockquote>${renderMarkdown(quote.join("\n"))}</blockquote>`);
+      quote = [];
+    }
+  };
+
+  const closeText = () => {
+    closeList();
+    closeParagraph();
+    closeQuote();
+  };
+
   for (const line of lines) {
     if (line.startsWith("```")) {
       if (code) {
         closeCode();
       } else {
-        closeList();
+        closeText();
         code = { lines: [] };
       }
       continue;
@@ -37,13 +58,21 @@ export function renderMarkdown(markdown) {
     }
 
     if (!line.trim()) {
-      closeList();
+      closeText();
       continue;
     }
 
-    const heading = /^(#{1,3})\s+(.+)$/.exec(line);
-    if (heading) {
+    const quoted = /^>\s?(.*)$/.exec(line);
+    if (quoted) {
       closeList();
+      closeParagraph();
+      quote.push(quoted[1]);
+      continue;
+    }
+
+    const heading = /^(#{1,6})\s+(.+)$/.exec(line);
+    if (heading) {
+      closeText();
       const level = heading[1].length;
       blocks.push(`<h${level}>${formatInline(heading[2])}</h${level}>`);
       continue;
@@ -51,6 +80,8 @@ export function renderMarkdown(markdown) {
 
     const unordered = /^[-*]\s+(.+)$/.exec(line);
     if (unordered) {
+      closeParagraph();
+      closeQuote();
       if (!list || list.type !== "ul") {
         closeList();
         list = { type: "ul", items: [] };
@@ -59,32 +90,55 @@ export function renderMarkdown(markdown) {
       continue;
     }
 
-    const ordered = /^\d+\.\s+(.+)$/.exec(line);
+    const ordered = /^(\d+)\.\s+(.+)$/.exec(line);
     if (ordered) {
+      closeParagraph();
+      closeQuote();
+      const start = Number(ordered[1]);
       if (!list || list.type !== "ol") {
         closeList();
-        list = { type: "ol", items: [] };
+        list = { type: "ol", start, items: [] };
       }
-      list.items.push(ordered[1]);
+      list.items.push(ordered[2]);
       continue;
     }
 
     closeList();
-    blocks.push(`<p>${formatInline(line)}</p>`);
+    closeQuote();
+    paragraph.push(line);
   }
 
   closeCode();
-  closeList();
+  closeText();
 
-  return blocks.filter((block) => blockTags.has(block.match(/^<([a-z0-9]+)/)?.[1] ?? "")).join("\n");
+  return blocks.join("\n");
 }
 
 function formatInline(value) {
-  return escapeHtml(value)
-    .replace(/`([^`]+)`/g, "<code>$1</code>")
-    .replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>")
-    .replace(/\*([^*]+)\*/g, "<em>$1</em>")
-    .replace(/\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)/g, '<a href="$2" rel="noreferrer">$1</a>');
+  const tokens = [];
+  const stash = (html) => {
+    tokens.push(html);
+    return "\0" + (tokens.length - 1) + "\0";
+  };
+
+  let text = escapeHtml(value);
+  text = text.replace(/`([^`]+)`/g, (match, content) => stash(`<code>${content}</code>`));
+  text = text.replace(/\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)/g, (match, label, url) =>
+    stash(`<a href="${url}" rel="noreferrer">${applyEmphasis(label)}</a>`)
+  );
+  text = applyEmphasis(text);
+
+  return restoreTokens(text, tokens);
+}
+
+function applyEmphasis(text) {
+  return text
+    .replace(/\*\*(?!\s)(.+?)(?<!\s)\*\*/g, "<strong>$1</strong>")
+    .replace(/\*(?!\s)([^*\n]+?)(?<!\s)\*/g, "<em>$1</em>");
+}
+
+function restoreTokens(text, tokens) {
+  return text.replace(/\0(\d+)\0/g, (match, index) => restoreTokens(tokens[Number(index)], tokens));
 }
 
 function escapeHtml(value) {

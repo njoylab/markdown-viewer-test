@@ -107,15 +107,28 @@ h1 {
 
 .preview h1,
 .preview h2,
-.preview h3 {
+.preview h3,
+.preview h4,
+.preview h5,
+.preview h6 {
   margin: 1.2em 0 0.35em;
   line-height: 1.15;
 }
 
 .preview h1:first-child,
 .preview h2:first-child,
-.preview h3:first-child {
+.preview h3:first-child,
+.preview h4:first-child,
+.preview h5:first-child,
+.preview h6:first-child {
   margin-top: 0;
+}
+
+.preview blockquote {
+  margin: 1em 0;
+  padding: 0.1em 0 0.1em 16px;
+  border-left: 4px solid #d8dbe0;
+  color: #62666d;
 }
 
 .preview a {
