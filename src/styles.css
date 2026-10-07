@@ -60,12 +60,33 @@ h1 {
   cursor: pointer;
 }
 
+.upload-button.is-uploading {
+  animation: upload-pulse 480ms ease-out;
+}
+
 .upload-button input {
   position: absolute;
   inline-size: 1px;
   block-size: 1px;
   opacity: 0;
   pointer-events: none;
+}
+
+@keyframes upload-pulse {
+  0% {
+    transform: scale(1);
+    box-shadow: 0 0 0 0 rgb(32 33 36 / 24%);
+  }
+
+  45% {
+    transform: scale(1.06);
+    box-shadow: 0 0 0 8px rgb(32 33 36 / 12%);
+  }
+
+  100% {
+    transform: scale(1);
+    box-shadow: 0 0 0 14px rgb(32 33 36 / 0%);
+  }
 }
 
 .workspace {
