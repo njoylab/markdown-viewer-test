@@ -1,9 +1,19 @@
+import { extractFrontmatter, renderFrontmatter } from "./frontmatter.js";
 import { renderMarkdown } from "./markdown.js";
+import {
+  DARK_QUERY,
+  applyTheme,
+  nextTheme,
+  readStoredTheme,
+  resolveInitialTheme,
+  storeTheme
+} from "./theme.js";
 
 const input = document.querySelector("#file-input");
 const uploadButton = document.querySelector(".upload-button");
 const preview = document.querySelector("#preview");
 const uploadError = document.querySelector("#upload-error");
+const themeToggle = document.querySelector("#theme-toggle");
 const examples = {
   "release-notes": `# Release Notes
 
@@ -27,6 +37,28 @@ Use inline \`code\` for commands and fenced blocks for snippets.
 
 \`\`\`js
 const status = "ready";
+\`\`\``,
+  "frontmatter": `---
+title: Release Notes
+tags: [markdown, preview, local-first]
+status: draft
+reviewers:
+  - Dana
+  - Marco
+---
+
+# Release Notes
+
+| Feature | State |
+| :--- | :---: |
+| Upload | done |
+| Dark mode | done |
+
+- [x] Parse YAML frontmatter
+- [ ] Ship drag and drop
+
+\`\`\`js
+const theme = localStorage.getItem("md-viewer-theme") ?? "light";
 \`\`\``
 };
 
@@ -40,8 +72,13 @@ function clearError() {
   uploadError.hidden = true;
 }
 
+function renderDocument(markdown) {
+  const { entries, body } = extractFrontmatter(markdown);
+  return renderFrontmatter(entries) + renderMarkdown(body);
+}
+
 function showMarkdown(markdown) {
-  preview.innerHTML = renderMarkdown(markdown);
+  preview.innerHTML = renderDocument(markdown);
   uploadButton.classList.remove("is-uploading");
   void uploadButton.offsetWidth;
   uploadButton.classList.add("is-uploading");
@@ -54,13 +91,7 @@ function isMarkdownFile(file) {
   return file.type === "text/markdown" || file.type === "text/plain";
 }
 
-input.addEventListener("change", async () => {
-  const file = input.files?.[0];
-  input.value = "";
-  if (!file) {
-    return;
-  }
-
+async function loadFile(file) {
   clearError();
   if (!isMarkdownFile(file)) {
     showError("Choose a Markdown file (.md, .markdown or .txt).");
@@ -76,6 +107,14 @@ input.addEventListener("change", async () => {
   }
 
   showMarkdown(markdown);
+}
+
+input.addEventListener("change", () => {
+  const file = input.files?.[0];
+  input.value = "";
+  if (file) {
+    loadFile(file);
+  }
 });
 
 preview.addEventListener("click", (event) => {
@@ -94,5 +133,92 @@ preview.addEventListener("click", (event) => {
   }
 
   clearError();
-  preview.innerHTML = renderMarkdown(markdown);
+  preview.innerHTML = renderDocument(markdown);
 });
+
+let dragDepth = 0;
+
+function isEditable(target) {
+  return target instanceof HTMLElement && (target.isContentEditable || /^(?:input|textarea|select)$/i.test(target.tagName));
+}
+
+document.addEventListener("dragenter", (event) => {
+  if (!event.dataTransfer?.types.includes("Files") || isEditable(event.target)) {
+    return;
+  }
+  dragDepth += 1;
+  document.body.classList.add("is-dragging");
+});
+
+document.addEventListener("dragover", (event) => {
+  if (event.dataTransfer?.types.includes("Files")) {
+    event.preventDefault();
+    event.dataTransfer.dropEffect = "copy";
+  }
+});
+
+document.addEventListener("dragleave", () => {
+  dragDepth = Math.max(0, dragDepth - 1);
+  if (dragDepth === 0) {
+    document.body.classList.remove("is-dragging");
+  }
+});
+
+document.addEventListener("drop", (event) => {
+  if (!event.dataTransfer?.types.includes("Files")) {
+    return;
+  }
+  event.preventDefault();
+  dragDepth = 0;
+  document.body.classList.remove("is-dragging");
+  const file = event.dataTransfer.files?.[0];
+  if (file) {
+    loadFile(file);
+  }
+});
+
+document.addEventListener("paste", (event) => {
+  if (isEditable(event.target)) {
+    return;
+  }
+
+  const file = event.clipboardData?.files?.[0];
+  if (file) {
+    event.preventDefault();
+    loadFile(file);
+    return;
+  }
+
+  const text = event.clipboardData?.getData("text/plain");
+  if (text?.trim()) {
+    event.preventDefault();
+    clearError();
+    showMarkdown(text);
+  }
+});
+
+const colorScheme = window.matchMedia?.(DARK_QUERY);
+let theme = resolveInitialTheme(readStoredTheme(window.localStorage), Boolean(colorScheme?.matches));
+applyTheme(theme, document.documentElement);
+
+function syncTheme(next) {
+  theme = next;
+  applyTheme(theme, document.documentElement);
+  themeToggle.textContent = theme === "dark" ? "Light mode" : "Dark mode";
+  themeToggle.setAttribute("aria-pressed", String(theme === "dark"));
+  themeToggle.setAttribute("aria-label", `Switch to ${theme === "dark" ? "light" : "dark"} mode`);
+}
+
+themeToggle.addEventListener("click", () => {
+  syncTheme(nextTheme(theme));
+  storeTheme(window.localStorage, theme);
+});
+
+colorScheme?.addEventListener("change", (event) => {
+  if (readStoredTheme(window.localStorage)) {
+    return;
+  }
+  syncTheme(resolveInitialTheme(null, event.matches));
+});
+
+syncTheme(theme);

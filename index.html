@@ -5,6 +5,16 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Markdown Viewer</title>
     <link rel="icon" href="data:," />
+    <script>
+      try {
+        var stored = localStorage.getItem("md-viewer-theme");
+        var theme = stored === "light" || stored === "dark"
+          ? stored
+          : matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+        document.documentElement.dataset.theme = theme;
+        document.documentElement.style.colorScheme = theme;
+      } catch (error) {}
+    </script>
     <link rel="stylesheet" href="./src/styles.css" />
   </head>
   <body>
@@ -13,12 +23,16 @@
         <div>
           <h1>Markdown Viewer</h1>
           <p>Load a local Markdown file and preview it as formatted HTML.</p>
+          <p class="toolbar-hint">Drop a file anywhere, paste with Ctrl/Cmd+V, or upload below.</p>
           <p id="upload-error" class="upload-error" role="alert" hidden></p>
         </div>
-        <label class="upload-button">
-          <span>Upload .md</span>
-          <input id="file-input" type="file" accept=".md,.markdown,text/markdown,text/plain" />
-        </label>
+        <div class="toolbar-actions">
+          <button id="theme-toggle" class="theme-toggle" type="button" aria-pressed="false">Dark mode</button>
+          <label class="upload-button">
+            <span>Upload .md</span>
+            <input id="file-input" type="file" accept=".md,.markdown,text/markdown,text/plain" />
+          </label>
+        </div>
       </section>
 
       <section class="workspace">
@@ -31,6 +45,7 @@
               <button type="button" data-example="release-notes">Release notes</button>
               <button type="button" data-example="project-plan">Project plan</button>
               <button type="button" data-example="technical-note">Technical note</button>
+              <button type="button" data-example="frontmatter">Frontmatter</button>
             </div>
           </div>
         </article>

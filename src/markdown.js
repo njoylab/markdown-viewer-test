@@ -1,3 +1,6 @@
+import { escapeHtml } from "./html.js";
+import { highlight } from "./highlight.js";
+
 const TOKEN_START = "\uE000";
 const TOKEN_END = "\uE001";
 const TOKEN_PATTERN = /\uE000(\d+)\uE001/g;
@@ -5,6 +8,9 @@ const CONTROL_CHARS = /[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F\uE000\uE001
 const FENCE = /^( {0,3})(`{3,}|~{3,})[ \t]*(.*)$/;
 const INDENTED_CODE = /^(?: {4}|\t)/;
 const LINK = /\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)/g;
+const TASK_ITEM = /^\[( |x|X)\][ \t]+([\s\S]+)$/;
+const LANGUAGE_NAME = /[^a-z0-9_+#.-]/g;
+const ALIGNMENT = { left: "align-left", center: "align-center", right: "align-right" };
 
 export function renderMarkdown(markdown) {
   const lines = String(markdown).replace(/\r\n?/g, "\n").replace(CONTROL_CHARS, "").split("\n");
@@ -17,7 +23,7 @@ export function renderMarkdown(markdown) {
   const closeList = () => {
     if (list) {
       const attr = list.type === "ol" && list.start > 1 ? ` start="${list.start}"` : "";
-      blocks.push(`<${list.type}${attr}>${list.items.map((item) => `<li>${formatInline(item)}</li>`).join("")}</${list.type}>`);
+      blocks.push(`<${list.type}${attr}>${list.items.map(renderListItem).join("")}</${list.type}>`);
       list = null;
     }
   };
@@ -26,7 +32,7 @@ export function renderMarkdown(markdown) {
     if (code) {
       const body = code.indented ? trimTrailingBlankLines(code.lines) : code.lines;
       if (body.length > 0) {
-        blocks.push(`<pre><code>${escapeHtml(body.join("\n"))}</code></pre>`);
+        blocks.push(`<pre><code${codeAttributes(code.language)}>${codeContent(body.join("\n"), code.language)}</code></pre>`);
       }
       code = null;
     }
@@ -52,7 +58,8 @@ export function renderMarkdown(markdown) {
     closeQuote();
   };
 
-  for (const line of lines) {
+  for (let cursor = 0; cursor < lines.length; cursor += 1) {
+    const line = lines[cursor];
     if (code) {
       if (isFenceClose(line, code)) {
         closeCode();
@@ -71,6 +78,7 @@ export function renderMarkdown(markdown) {
       code = {
         marker: fence[2][0],
         length: fence[2].length,
+        language: parseLanguage(fence[3]),
         lines: [],
         indented: false
       };
@@ -79,7 +87,7 @@ export function renderMarkdown(markdown) {
 
     if (INDENTED_CODE.test(line) && paragraph.length === 0 && quote.length === 0) {
       closeList();
-      code = { marker: "", length: 0, lines: [dedentIndented(line)], indented: true };
+      code = { marker: "", length: 0, language: "", lines: [dedentIndented(line)], indented: true };
       continue;
     }
 
@@ -101,6 +109,14 @@ export function renderMarkdown(markdown) {
       closeText();
       const level = heading[1].length;
       blocks.push(`<h${level}>${formatInline(heading[2])}</h${level}>`);
+      continue;
+    }
+
+    const table = readTable(lines, cursor);
+    if (table) {
+      closeText();
+      blocks.push(renderTable(table.header, table.alignments, table.rows));
+      cursor = table.end - 1;
       continue;
     }
 
@@ -192,13 +208,97 @@ function restoreTokens(text, tokens) {
   return text.replace(TOKEN_PATTERN, (match, index) => restoreTokens(tokens[Number(index)], tokens));
 }
 
-function escapeHtml(value) {
-  return value
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;")
-    .replaceAll("'", "&#39;");
+function renderListItem(item) {
+  const task = TASK_ITEM.exec(item);
+  if (!task) {
+    return `<li>${formatInline(item)}</li>`;
+  }
+  const checked = task[1].toLowerCase() === "x" ? " checked" : "";
+  return `<li class="task-item"><input class="task-checkbox" type="checkbox" disabled${checked}> ${formatInline(task[2])}</li>`;
+}
+
+function parseLanguage(info) {
+  const [name = ""] = info.trim().split(/\s+/);
+  return name.toLowerCase().replace(LANGUAGE_NAME, "");
+}
+
+function codeAttributes(language) {
+  return language ? ` class="language-${escapeHtml(language)}"` : "";
+}
+
+function codeContent(text, language) {
+  return language ? highlight(text, language) : escapeHtml(text);
+}
+
+function readTable(lines, start) {
+  const header = splitRow(lines[start]);
+  const divider = splitRow(lines[start + 1]);
+  if (!header || !divider || header.length !== divider.length || !isDividerRow(divider)) {
+    return null;
+  }
+
+  const rows = [];
+  let cursor = start + 2;
+  while (cursor < lines.length) {
+    const cells = splitRow(lines[cursor]);
+    if (!cells) {
+      break;
+    }
+    rows.push(cells);
+    cursor += 1;
+  }
+
+  return { header, alignments: divider.map(readAlignment), rows, end: cursor };
+}
+
+function splitRow(line) {
+  const text = String(line).trim();
+  if (!text.includes("|")) {
+    return null;
+  }
+  return text
+    .replace(/^\|/, "")
+    .replace(/\|$/, "")
+    .split("|")
+    .map((cell) => cell.trim());
+}
+
+function isDividerRow(cells) {
+  return cells.length > 0 && cells.every((cell) => /^:?-+:?$/.test(cell));
+}
+
+function readAlignment(cell) {
+  const left = cell.startsWith(":");
+  const right = cell.endsWith(":");
+  if (left && right) {
+    return ALIGNMENT.center;
+  }
+  if (right) {
+    return ALIGNMENT.right;
+  }
+  if (left) {
+    return ALIGNMENT.left;
+  }
+  return "";
+}
+
+function renderTable(header, alignments, rows) {
+  const head = header
+    .map((cell, index) => `<th${cellClass(alignments[index])}>${formatInline(cell)}</th>`)
+    .join("");
+  const body = rows
+    .map((row) => {
+      const cells = header
+        .map((_, index) => `<td${cellClass(alignments[index])}>${formatInline(row[index] ?? "")}</td>`)
+        .join("");
+      return `<tr>${cells}</tr>`;
+    })
+    .join("");
+  return `<table><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table>`;
+}
+
+function cellClass(alignment) {
+  return alignment ? ` class="${alignment}"` : "";
 }
 
 function stripControlChars(value) {

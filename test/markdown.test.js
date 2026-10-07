@@ -18,9 +18,33 @@ test("escapes unsafe html", () => {
 });
 
 test("renders fenced code blocks", () => {
-  const html = renderMarkdown("```js\nconst value = 1 < 2;\n```");
+  const html = renderMarkdown("```\nconst value = 1 < 2;\n```");
 
   assert.equal(html, "<pre><code>const value = 1 &lt; 2;</code></pre>");
+});
+
+test("highlights fenced code blocks that declare a language", () => {
+  const html = renderMarkdown("```js\nconst value = 1 < 2;\n```");
+
+  assert.equal(
+    html,
+    '<pre><code class="language-js"><span class="tok-keyword">const</span> value = ' +
+      '<span class="tok-number">1</span> &lt; <span class="tok-number">2</span>;</code></pre>'
+  );
+});
+
+test("keeps code in unknown languages escaped without tokens", () => {
+  assert.equal(
+    renderMarkdown("```brainfuck\n+[-<>] <b>\n```"),
+    '<pre><code class="language-brainfuck">+[-&lt;&gt;] &lt;b&gt;</code></pre>'
+  );
+});
+
+test("drops unsafe characters from the language name", () => {
+  const html = renderMarkdown('```js" onmouseover="alert(1)\nconst a = 1;\n```');
+
+  assert.match(html, /^<pre><code class="language-js[^"]*"/);
+  assert.doesNotMatch(html, /onmouseover="alert/);
 });
 
 test("keeps inline code literal", () => {
@@ -127,7 +151,7 @@ test("strips control characters and forged token placeholders", () => {
 });
 
 test("renders tilde fenced code blocks", () => {
-  assert.equal(renderMarkdown("~~~js\nconst value = 1;\n~~~"), "<pre><code>const value = 1;</code></pre>");
+  assert.equal(renderMarkdown("~~~\nplain block\n~~~"), "<pre><code>plain block</code></pre>");
   assert.equal(
     renderMarkdown("~~~~\nlonger fence\n~~~~"),
     "<pre><code>longer fence</code></pre>"
@@ -159,4 +183,80 @@ test("does not turn indented paragraph continuations into code", () => {
 test("renders code spans delimited by longer backtick runs", () => {
   assert.equal(renderMarkdown("`` a ` b ``"), "<p><code>a ` b</code></p>");
   assert.equal(renderMarkdown("`inline`"), "<p><code>inline</code></p>");
+});
+
+test("renders GFM tables with alignment", () => {
+  const html = renderMarkdown([
+    "| Feature | State | Notes |",
+    "| :--- | :---: | ---: |",
+    "| Upload | done | local |",
+    "| Paste | done | clipboard |"
+  ].join("\n"));
+
+  assert.equal(
+    html,
+    "<table><thead><tr>" +
+      '<th class="align-left">Feature</th>' +
+      '<th class="align-center">State</th>' +
+      '<th class="align-right">Notes</th>' +
+      "</tr></thead><tbody>" +
+      '<tr><td class="align-left">Upload</td><td class="align-center">done</td><td class="align-right">local</td></tr>' +
+      '<tr><td class="align-left">Paste</td><td class="align-center">done</td><td class="align-right">clipboard</td></tr>' +
+      "</tbody></table>"
+  );
+});
+
+test("formats inline markdown inside table cells", () => {
+  const html = renderMarkdown("| A | B |\n| --- | --- |\n| **bold** | `code` |");
+
+  assert.match(html, /<td><strong>bold<\/strong><\/td>/);
+  assert.match(html, /<td><code>code<\/code><\/td>/);
+});
+
+test("renders tables without outer pipes and stops at a blank line", () => {
+  const html = renderMarkdown("A | B\n--- | ---\n1 | 2\n\nafter");
+
+  assert.match(html, /<table>[\s\S]*<\/table>/);
+  assert.match(html, /<\/table>\n<p>after<\/p>$/);
+});
+
+test("escapes html inside table cells", () => {
+  const html = renderMarkdown('| A |\n| --- |\n| <img src=x onerror="alert(1)"> |');
+
+  assert.doesNotMatch(html, /<img/);
+  assert.match(html, /&lt;img src=x onerror=&quot;alert\(1\)&quot;&gt;/);
+});
+
+test("does not treat pipes without a divider row as a table", () => {
+  assert.equal(renderMarkdown("| a | b |"), "<p>| a | b |</p>");
+  assert.equal(renderMarkdown("| a | b |\n| --- |"), "<p>| a | b |\n| --- |</p>");
+});
+
+test("renders task list items as disabled checkboxes", () => {
+  const html = renderMarkdown("- [x] Done\n- [ ] Todo\n- Plain");
+
+  assert.match(html, /<li class="task-item"><input class="task-checkbox" type="checkbox" disabled checked> Done<\/li>/);
+  assert.match(html, /<li class="task-item"><input class="task-checkbox" type="checkbox" disabled> Todo<\/li>/);
+  assert.match(html, /<li>Plain<\/li>/);
+});
+
+test("formats markdown inside task list items", () => {
+  const html = renderMarkdown("- [x] **Bold** task with `code`");
+
+  assert.match(html, /<strong>Bold<\/strong> task with <code>code<\/code>/);
+});
+
+test("keeps ordered task lists working", () => {
+  const html = renderMarkdown("1. [x] first\n2. [ ] second");
+
+  assert.match(html, /^<ol>/);
+  assert.match(html, /<li class="task-item">/);
+});
+
+test("does not emit handlers or scripts in task lists and tables", () => {
+  const html = renderMarkdown('- [x] <script>alert("1")</script>\n\n| A |\n| --- |\n| <svg onload="alert(1)"> |');
+
+  assert.doesNotMatch(html, /<script/i);
+  assert.doesNotMatch(html, /<svg/i);
+  assert.doesNotMatch(html, /\son\w+=(?!&quot;)/i);
 });
