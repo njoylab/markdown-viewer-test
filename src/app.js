@@ -1,5 +1,15 @@
-import { extractFrontmatter, renderFrontmatter } from "./frontmatter.js";
-import { renderMarkdown } from "./markdown.js";
+import { renderDocument } from "./document.js";
+import {
+  FONT_SIZES,
+  applyFontSize,
+  readFontSize,
+  resolveInitialFontSize,
+  stepFontSize,
+  storeFontSize
+} from "./font-size.js";
+import { escapeHtml } from "./html.js";
+import { clearDocument, readDocument, storeDocument } from "./session.js";
+import { SHORTCUTS, matchShortcut } from "./shortcuts.js";
 import {
   DARK_QUERY,
   applyTheme,
@@ -8,12 +18,30 @@ import {
   resolveInitialTheme,
   storeTheme
 } from "./theme.js";
+import { buildToc, findHeadingById, headingHref } from "./toc.js";
+
+const storage = window.localStorage;
 
 const input = document.querySelector("#file-input");
 const uploadButton = document.querySelector(".upload-button");
 const preview = document.querySelector("#preview");
 const uploadError = document.querySelector("#upload-error");
+const status = document.querySelector("#status");
 const themeToggle = document.querySelector("#theme-toggle");
+const outline = document.querySelector("#outline");
+const workspace = document.querySelector("#workspace");
+const outlineList = document.querySelector("#outline-list");
+const outlineToggle = document.querySelector("#toc-toggle");
+const copyButton = document.querySelector("#copy-html");
+const printButton = document.querySelector("#print");
+const clearButton = document.querySelector("#clear");
+const textBigger = document.querySelector("#text-bigger");
+const textSmaller = document.querySelector("#text-smaller");
+const shortcutList = document.querySelector("#shortcut-list");
+const placeholderHtml = preview.innerHTML;
+const SCROLL_OFFSET = 96;
+const SMOOTH_SCROLL_MS = 800;
+
 const examples = {
   "release-notes": `# Release Notes
 
@@ -49,6 +77,8 @@ reviewers:
 
 # Release Notes
 
+## Checklist
+
 | Feature | State |
 | :--- | :---: |
 | Upload | done |
@@ -62,6 +92,13 @@ const theme = localStorage.getItem("md-viewer-theme") ?? "light";
 \`\`\``
 };
 
+let markdown = "";
+let documentName = "";
+let headings = [];
+let toc = [];
+let activeId = "";
+let outlineDismissed = false;
+
 function showError(message) {
   uploadError.textContent = message;
   uploadError.hidden = false;
@@ -72,16 +109,63 @@ function clearError() {
   uploadError.hidden = true;
 }
 
-function renderDocument(markdown) {
-  const { entries, body } = extractFrontmatter(markdown);
-  return renderFrontmatter(entries) + renderMarkdown(body);
+function showStatus(message) {
+  status.textContent = message;
+  status.hidden = message === "";
 }
 
-function showMarkdown(markdown) {
-  preview.innerHTML = renderDocument(markdown);
-  uploadButton.classList.remove("is-uploading");
-  void uploadButton.offsetWidth;
-  uploadButton.classList.add("is-uploading");
+function renderOutline() {
+  outlineList.innerHTML = toc
+    .map((heading) => `<li class="outline-item outline-depth-${heading.depth}"><a href="${headingHref(heading)}" data-heading="${escapeHtml(heading.id)}">${escapeHtml(heading.text)}</a></li>`)
+    .join("");
+  setOutlineVisible(!outlineDismissed);
+  setActiveHeading(currentHashId());
+}
+
+function showMarkdown(nextMarkdown, name = "", options = {}) {
+  markdown = String(nextMarkdown ?? "");
+  documentName = String(name ?? "");
+
+  const result = renderDocument(markdown);
+  headings = result.headings;
+  toc = buildToc(headings);
+
+  preview.innerHTML = result.html;
+  document.title = result.title ? `${result.title} · Markdown Viewer` : "Markdown Viewer";
+
+  if (markdown === "") {
+    clearDocument(storage);
+  } else {
+    storeDocument(storage, markdown, documentName);
+  }
+
+  renderOutline();
+  scrollToHash(window.location.hash, { smooth: false });
+  spyPausedUntil = 0;
+  updateScrollSpy();
+
+  if (options.animate) {
+    uploadButton.classList.remove("is-uploading");
+    void uploadButton.offsetWidth;
+    uploadButton.classList.add("is-uploading");
+  }
+
+  if (options.message) {
+    showStatus(options.message);
+  }
+}
+
+function resetDocument() {
+  markdown = "";
+  documentName = "";
+  headings = [];
+  toc = [];
+  preview.innerHTML = placeholderHtml;
+  document.title = "Markdown Viewer";
+  clearDocument(storage);
+  history.replaceState(null, "", `${location.pathname}${location.search}`);
+  renderOutline();
+  showStatus("Cleared the stored document.");
 }
 
 function isMarkdownFile(file) {
@@ -98,15 +182,15 @@ async function loadFile(file) {
     return;
   }
 
-  let markdown;
+  let content;
   try {
-    markdown = await file.text();
+    content = await file.text();
   } catch {
     showError("The file could not be read.");
     return;
   }
 
-  showMarkdown(markdown);
+  showMarkdown(content, file.name, { animate: true, message: `Loaded ${file.name}.` });
 }
 
 input.addEventListener("change", () => {
@@ -123,17 +207,10 @@ preview.addEventListener("click", (event) => {
   }
 
   const button = event.target.closest("[data-example]");
-  if (!(button instanceof HTMLButtonElement)) {
-    return;
+  if (button instanceof HTMLButtonElement) {
+    clearError();
+    showMarkdown(examples[button.dataset.example], "", { message: "Loaded an example document." });
   }
-
-  const markdown = examples[button.dataset.example];
-  if (!markdown) {
-    return;
-  }
-
-  clearError();
-  preview.innerHTML = renderDocument(markdown);
 });
 
 let dragDepth = 0;
@@ -193,12 +270,170 @@ document.addEventListener("paste", (event) => {
   if (text?.trim()) {
     event.preventDefault();
     clearError();
-    showMarkdown(text);
+    showMarkdown(text, "", { message: "Pasted Markdown from the clipboard." });
   }
 });
 
+function setOutlineVisible(visible) {
+  const next = visible && toc.length > 0;
+  outline.hidden = !next;
+  workspace.dataset.outline = next ? "visible" : "hidden";
+  outlineToggle.setAttribute("aria-pressed", String(next));
+  if (!next) {
+    setActiveHeading("");
+  }
+  return next;
+}
+
+outlineToggle.addEventListener("click", () => {
+  const next = !outline.hidden;
+  outlineDismissed = next;
+  setOutlineVisible(!next);
+});
+
+clearButton.addEventListener("click", resetDocument);
+
+outlineList.addEventListener("click", (event) => {
+  const link = event.target instanceof Element ? event.target.closest("a[data-heading]") : null;
+  if (!(link instanceof HTMLAnchorElement)) {
+    return;
+  }
+
+  event.preventDefault();
+  const heading = toc.find((item) => item.id === link.dataset.heading);
+  if (!heading) {
+    return;
+  }
+
+  history.replaceState(null, "", headingHref(heading));
+  setActiveHeading(heading.id);
+  scrollToHeading(heading.id, { smooth: true });
+});
+
+function currentHashId() {
+  const heading = findHeadingById(headings, window.location.hash);
+  return heading?.id ?? "";
+}
+
+function scrollToHeading(id, options = {}) {
+  const target = document.getElementById(id);
+  if (!target) {
+    return false;
+  }
+  if (options.smooth) {
+    spyPausedUntil = performance.now() + SMOOTH_SCROLL_MS;
+  }
+  target.scrollIntoView({ behavior: options.smooth ? "smooth" : "auto", block: "start" });
+  return true;
+}
+
+function scrollToHash(hash, options = {}) {
+  const heading = findHeadingById(headings, hash);
+  if (!heading) {
+    return false;
+  }
+  setOutlineVisible(true);
+  setActiveHeading(heading.id);
+  return scrollToHeading(heading.id, options);
+}
+
+function setActiveHeading(id) {
+  activeId = id;
+  for (const link of outlineList.querySelectorAll("a[data-heading]")) {
+    const isActive = link.dataset.heading === id && id !== "";
+    link.classList.toggle("is-active", isActive);
+    if (isActive) {
+      link.setAttribute("aria-current", "true");
+    } else {
+      link.removeAttribute("aria-current");
+    }
+  }
+}
+
+let spyPending = false;
+let spyPausedUntil = 0;
+
+function updateScrollSpy() {
+  if (outline.hidden || toc.length === 0) {
+    return;
+  }
+  if (performance.now() < spyPausedUntil) {
+    return;
+  }
+
+  const offset = SCROLL_OFFSET;
+  let current = toc[0].id;
+  for (const heading of toc) {
+    const element = document.getElementById(heading.id);
+    if (element && element.getBoundingClientRect().top - offset <= 0) {
+      current = heading.id;
+    }
+  }
+
+  if (window.innerHeight + window.scrollY >= document.documentElement.scrollHeight - 4) {
+    current = toc[toc.length - 1].id;
+  }
+
+  if (current !== activeId) {
+    history.replaceState(null, "", headingHref(current));
+    setActiveHeading(current);
+  }
+}
+
+window.addEventListener("scroll", () => {
+  if (spyPending) {
+    return;
+  }
+  spyPending = true;
+  requestAnimationFrame(() => {
+    spyPending = false;
+    updateScrollSpy();
+  });
+}, { passive: true });
+
+window.addEventListener("hashchange", () => {
+  scrollToHash(window.location.hash, { smooth: true });
+});
+
+async function copyHtml() {
+  const html = preview.innerHTML.trim();
+  if (html === "") {
+    showStatus("There is nothing to copy yet.");
+    return;
+  }
+
+  try {
+    await navigator.clipboard.writeText(html);
+    showStatus("Copied the rendered HTML.");
+  } catch {
+    showStatus("The clipboard is not available in this browser.");
+  }
+}
+
+copyButton.addEventListener("click", copyHtml);
+
+printButton.addEventListener("click", () => window.print());
+
+let fontSize = resolveInitialFontSize(readFontSize(storage));
+
+function syncFontSize() {
+  applyFontSize(fontSize, document.documentElement);
+  const index = FONT_SIZES.indexOf(fontSize);
+  textSmaller.disabled = index === 0;
+  textBigger.disabled = index === FONT_SIZES.length - 1;
+}
+
+function changeFontSize(direction) {
+  fontSize = stepFontSize(fontSize, direction);
+  syncFontSize();
+  storeFontSize(storage, fontSize);
+}
+
+textSmaller.addEventListener("click", () => changeFontSize("smaller"));
+textBigger.addEventListener("click", () => changeFontSize("bigger"));
+
 const colorScheme = window.matchMedia?.(DARK_QUERY);
-let theme = resolveInitialTheme(readStoredTheme(window.localStorage), Boolean(colorScheme?.matches));
+let theme = resolveInitialTheme(readStoredTheme(storage), Boolean(colorScheme?.matches));
 applyTheme(theme, document.documentElement);
 
 function syncTheme(next) {
@@ -211,14 +446,75 @@ function syncTheme(next) {
 
 themeToggle.addEventListener("click", () => {
   syncTheme(nextTheme(theme));
-  storeTheme(window.localStorage, theme);
+  storeTheme(storage, theme);
 });
 
 colorScheme?.addEventListener("change", (event) => {
-  if (readStoredTheme(window.localStorage)) {
+  if (readStoredTheme(storage)) {
     return;
   }
   syncTheme(resolveInitialTheme(null, event.matches));
 });
 
+document.addEventListener("keydown", (event) => {
+  const action = matchShortcut(event);
+  if (!action) {
+    return;
+  }
+
+  switch (action) {
+    case "toggle-theme":
+      syncTheme(nextTheme(theme));
+      storeTheme(storage, theme);
+      break;
+    case "toggle-toc":
+      outlineDismissed = !outline.hidden;
+      setOutlineVisible(outline.hidden);
+      break;
+    case "bigger-text":
+      changeFontSize("bigger");
+      break;
+    case "smaller-text":
+      changeFontSize("smaller");
+      break;
+    case "copy-html":
+      copyHtml();
+      break;
+    case "print":
+      window.print();
+      break;
+    case "close-toc":
+      outlineDismissed = true;
+      setOutlineVisible(false);
+      break;
+    default:
+      return;
+  }
+
+  event.preventDefault();
+});
+
 syncTheme(theme);
+syncFontSize();
+renderShortcuts();
+restoreSession();
+
+function renderShortcuts() {
+  if (shortcutList.children.length > 0) {
+    return;
+  }
+  shortcutList.innerHTML = SHORTCUTS
+    .map((shortcut) => `<div class="shortcut"><dt>${escapeHtml(shortcut.keys.join(" / "))}</dt><dd>${escapeHtml(shortcut.label)}</dd></div>`)
+    .join("");
+}
+
+function restoreSession() {
+  const stored = readDocument(storage);
+  if (!stored) {
+    return;
+  }
+
+  showMarkdown(stored.markdown, stored.name, {
+    message: stored.name ? `Restored ${stored.name} from your last session.` : "Restored your last document."
+  });
+}

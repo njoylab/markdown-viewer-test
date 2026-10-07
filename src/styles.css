@@ -81,10 +81,82 @@ body.is-dragging::after {
 
 .toolbar {
   display: flex;
+  flex-wrap: wrap;
   align-items: flex-start;
   justify-content: space-between;
   gap: 24px;
   padding: 20px 0 28px;
+}
+
+.status {
+  margin-top: 8px;
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.text-size {
+  display: inline-flex;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--surface);
+  overflow: hidden;
+}
+
+.text-size-button {
+  min-height: 42px;
+  min-width: 44px;
+  padding: 0 10px;
+  border: 0;
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.text-size-button:hover:not(:disabled),
+.text-size-button:focus-visible {
+  background: var(--surface-hover);
+  outline: none;
+}
+
+.text-size-button:disabled {
+  color: var(--border-strong);
+  opacity: 0.45;
+  cursor: default;
+}
+
+.shortcuts {
+  flex-basis: 100%;
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.shortcuts summary {
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.shortcuts dl {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 6px 20px;
+  margin: 10px 0 0;
+}
+
+.shortcut {
+  display: flex;
+  gap: 8px;
+}
+
+.shortcut dt {
+  min-width: 72px;
+  color: var(--text);
+  font-weight: 700;
+}
+
+.shortcut dd {
+  margin: 0;
 }
 
 .toolbar-actions {
@@ -183,6 +255,10 @@ h1 {
 }
 
 .workspace {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 28px;
+  align-items: start;
   min-height: 66vh;
   padding: 28px;
   border: 1px solid var(--border);
@@ -191,11 +267,83 @@ h1 {
   box-shadow: 0 18px 40px var(--shadow);
 }
 
+.workspace[data-outline="visible"] {
+  grid-template-columns: 220px minmax(0, 1fr);
+}
+
+.outline {
+  position: sticky;
+  top: 24px;
+  max-height: calc(100vh - 48px);
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+.outline-title {
+  margin-bottom: 8px;
+  color: var(--muted);
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.outline-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: 0.9rem;
+}
+
+.outline-item {
+  margin: 2px 0;
+}
+
+.outline-item.outline-depth-1 {
+  padding-left: 12px;
+}
+
+.outline-item a {
+  display: block;
+  padding: 4px 8px;
+  border-left: 2px solid var(--border);
+  color: var(--muted);
+  text-decoration: none;
+}
+
+.outline-item a:hover {
+  color: var(--text);
+  background: var(--surface-hover);
+}
+
+.outline-item a.is-active {
+  border-left-color: var(--accent);
+  color: var(--accent);
+  font-weight: 700;
+}
+
 .preview {
   max-width: 760px;
   margin: 0 auto;
-  font-size: 1rem;
+  font-size: var(--preview-font-size, 1rem);
   line-height: 1.65;
+  min-width: 0;
+}
+
+:root[data-font-size="small"] {
+  --preview-font-size: 0.875rem;
+}
+
+:root[data-font-size="medium"] {
+  --preview-font-size: 1rem;
+}
+
+:root[data-font-size="large"] {
+  --preview-font-size: 1.15rem;
+}
+
+:root[data-font-size="xlarge"] {
+  --preview-font-size: 1.35rem;
 }
 
 .preview h1,
@@ -206,6 +354,7 @@ h1 {
 .preview h6 {
   margin: 1.2em 0 0.35em;
   line-height: 1.15;
+  scroll-margin-top: 24px;
 }
 
 .preview h1:first-child,
@@ -435,5 +584,62 @@ h1 {
 
   .workspace {
     padding: 20px;
+  }
+
+  .workspace[data-outline="visible"] {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .outline {
+    position: static;
+    max-height: none;
+    padding-bottom: 12px;
+    border-bottom: 1px solid var(--border);
+  }
+}
+
+@media print {
+  .toolbar,
+  .outline,
+  .shortcuts,
+  .examples,
+  .upload-button {
+    display: none !important;
+  }
+
+  :root {
+    --preview-font-size: 11pt;
+  }
+
+  body {
+    background: #ffffff;
+  }
+
+  .shell {
+    width: 100%;
+    padding: 0;
+  }
+
+  .workspace {
+    display: block;
+    min-height: 0;
+    padding: 0;
+    border: 0;
+    box-shadow: none;
+  }
+
+  .preview {
+    max-width: none;
+  }
+
+  .preview pre {
+    background: #f3f4f6;
+    color: #111111;
+    border: 1px solid var(--border);
+    white-space: pre-wrap;
+  }
+
+  .preview a {
+    color: #111111;
   }
 }

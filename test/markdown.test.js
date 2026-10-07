@@ -5,7 +5,7 @@ import { renderMarkdown } from "../src/markdown.js";
 test("renders headings, emphasis and lists", () => {
   const html = renderMarkdown("# Title\n\nA **bold** and *soft* line.\n\n- One\n- Two");
 
-  assert.match(html, /<h1>Title<\/h1>/);
+  assert.match(html, /<h1 id="title">Title<\/h1>/);
   assert.match(html, /<strong>bold<\/strong>/);
   assert.match(html, /<em>soft<\/em>/);
   assert.match(html, /<ul><li>One<\/li><li>Two<\/li><\/ul>/);
@@ -14,7 +14,7 @@ test("renders headings, emphasis and lists", () => {
 test("escapes unsafe html", () => {
   const html = renderMarkdown("# <script>alert(1)</script>");
 
-  assert.equal(html, "<h1>&lt;script&gt;alert(1)&lt;/script&gt;</h1>");
+  assert.equal(html, '<h1 id="alert1">&lt;script&gt;alert(1)&lt;/script&gt;</h1>');
 });
 
 test("renders fenced code blocks", () => {
@@ -62,7 +62,7 @@ test("renders nested emphasis", () => {
 test("renders headings up to level six", () => {
   const html = renderMarkdown("#### Four\n\n###### Six");
 
-  assert.equal(html, "<h4>Four</h4>\n<h6>Six</h6>");
+  assert.equal(html, '<h4 id="four">Four</h4>\n<h6 id="six">Six</h6>');
 });
 
 test("keeps the ordered list start number", () => {
@@ -84,7 +84,7 @@ test("renders blockquotes", () => {
 test("applies emphasis inside link labels", () => {
   assert.equal(
     renderMarkdown("[**bold**](https://x.com)"),
-    '<p><a href="https://x.com" rel="noreferrer"><strong>bold</strong></a></p>'
+    '<p><a href="https://x.com" rel="noreferrer noopener"><strong>bold</strong></a></p>'
   );
 });
 
@@ -92,6 +92,45 @@ test("ignores unsafe link schemes", () => {
   const html = renderMarkdown("[x](javascript:alert(1))");
 
   assert.equal(html, "<p>[x](javascript:alert(1))</p>");
+});
+
+test("renders relative links and anchors", () => {
+  assert.equal(
+    renderMarkdown("[a](./notes.md) [b](#section)"),
+    '<p><a href="./notes.md" rel="noreferrer noopener">a</a> <a href="#section" rel="noreferrer noopener">b</a></p>'
+  );
+});
+
+test("keeps mailto links and drops protocol relative ones", () => {
+  assert.equal(
+    renderMarkdown("[mail](mailto:a@b.com)"),
+    '<p><a href="mailto:a@b.com" rel="noreferrer noopener">mail</a></p>'
+  );
+  assert.equal(renderMarkdown("[x](//evil.example.com)"), "<p>[x](//evil.example.com)</p>");
+});
+
+test("gives every heading a stable anchor id", () => {
+  assert.equal(
+    renderMarkdown("## Getting started\n\n## Getting started"),
+    '<h2 id="getting-started">Getting started</h2>\n<h2 id="getting-started-1">Getting started</h2>'
+  );
+});
+
+test("collects the rendered headings with their plain text", () => {
+  const headings = [];
+
+  renderMarkdown("# Release **notes**\n\n## 100% done\n\ntext", { headings });
+
+  assert.deepEqual(headings, [
+    { level: 1, text: "Release notes", id: "release-notes" },
+    { level: 2, text: "100% done", id: "100-done" }
+  ]);
+});
+
+test("keeps heading ids usable as css hooks", () => {
+  const html = renderMarkdown('## A "quoted" & odd heading');
+
+  assert.match(html, /<h2 id="a-quoted-odd-heading">/);
 });
 
 test("escapes html that could inject attributes or handlers", () => {
@@ -119,7 +158,7 @@ test("escapes html inside headings, list items and quotes", () => {
 
   assert.equal(
     html,
-    "<h1>&lt;b&gt;a&lt;/b&gt;</h1>\n<ul><li>&lt;i&gt;b&lt;/i&gt;</li></ul>\n" +
+    '<h1 id="a">&lt;b&gt;a&lt;/b&gt;</h1>\n<ul><li>&lt;i&gt;b&lt;/i&gt;</li></ul>\n' +
       "<blockquote><p>&lt;svg onload=alert(1)&gt;</p></blockquote>"
   );
 });

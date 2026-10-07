@@ -13,6 +13,11 @@
           : matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
         document.documentElement.dataset.theme = theme;
         document.documentElement.style.colorScheme = theme;
+
+        var fontSize = localStorage.getItem("md-viewer-font-size");
+        document.documentElement.dataset.fontSize = ["small", "medium", "large", "xlarge"].indexOf(fontSize) === -1
+          ? "medium"
+          : fontSize;
       } catch (error) {}
     </script>
     <link rel="stylesheet" href="./src/styles.css" />
@@ -25,17 +30,34 @@
           <p>Load a local Markdown file and preview it as formatted HTML.</p>
           <p class="toolbar-hint">Drop a file anywhere, paste with Ctrl/Cmd+V, or upload below.</p>
           <p id="upload-error" class="upload-error" role="alert" hidden></p>
+          <p id="status" class="status" role="status" hidden></p>
         </div>
         <div class="toolbar-actions">
           <button id="theme-toggle" class="theme-toggle" type="button" aria-pressed="false">Dark mode</button>
+          <div class="text-size" role="group" aria-label="Text size">
+            <button id="text-smaller" class="text-size-button" type="button" title="Smaller text (-)" aria-label="Smaller text">A&minus;</button>
+            <button id="text-bigger" class="text-size-button" type="button" title="Bigger text (+)" aria-label="Bigger text">A+</button>
+          </div>
+          <button id="toc-toggle" class="theme-toggle" type="button" aria-pressed="false" aria-controls="outline">Outline</button>
+          <button id="copy-html" class="theme-toggle" type="button">Copy HTML</button>
+          <button id="print" class="theme-toggle" type="button">Print</button>
+          <button id="clear" class="theme-toggle" type="button">Clear</button>
           <label class="upload-button">
             <span>Upload .md</span>
             <input id="file-input" type="file" accept=".md,.markdown,text/markdown,text/plain" />
           </label>
         </div>
+        <details id="shortcuts" class="shortcuts">
+          <summary>Keyboard shortcuts</summary>
+          <dl id="shortcut-list"></dl>
+        </details>
       </section>
 
-      <section class="workspace">
+      <section class="workspace" id="workspace">
+        <nav id="outline" class="outline" aria-label="Table of contents" hidden>
+          <p class="outline-title">On this page</p>
+          <ol id="outline-list" class="outline-list"></ol>
+        </nav>
         <article id="preview" class="preview" aria-live="polite">
           <h2>Ready to preview Markdown</h2>
           <p>Upload a .md or .markdown file to see formatted headings, lists, links and code blocks here.</p>

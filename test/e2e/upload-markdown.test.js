@@ -87,7 +87,7 @@ async function routeStaticFiles(page) {
 }
 
 async function assertVisibleText(page, text) {
-  assert.equal(await page.getByText(text, { exact: true }).isVisible(), true);
+  assert.equal(await page.locator("#preview").getByText(text, { exact: true }).first().isVisible(), true);
 }
 
 async function expectUploadAnimation(page, locator) {

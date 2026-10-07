@@ -1,5 +1,7 @@
 import { escapeHtml } from "./html.js";
 import { highlight } from "./highlight.js";
+import { safeUrl } from "./sanitize.js";
+import { createSlugger, plainText } from "./slug.js";
 
 const TOKEN_START = "\uE000";
 const TOKEN_END = "\uE001";
@@ -7,13 +9,26 @@ const TOKEN_PATTERN = /\uE000(\d+)\uE001/g;
 const CONTROL_CHARS = /[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F\uE000\uE001]/g;
 const FENCE = /^( {0,3})(`{3,}|~{3,})[ \t]*(.*)$/;
 const INDENTED_CODE = /^(?: {4}|\t)/;
-const LINK = /\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)/g;
+const LINK = /\[([^\]]+)\]\(([^)\s]+)\)/g;
 const TASK_ITEM = /^\[( |x|X)\][ \t]+([\s\S]+)$/;
 const LANGUAGE_NAME = /[^a-z0-9_+#.-]/g;
 const ALIGNMENT = { left: "align-left", center: "align-center", right: "align-right" };
 
-export function renderMarkdown(markdown) {
+export function renderMarkdown(markdown, options = {}) {
+  const headings = Array.isArray(options.headings) ? options.headings : null;
   const lines = String(markdown).replace(/\r\n?/g, "\n").replace(CONTROL_CHARS, "").split("\n");
+  const slug = createSlugger();
+  const headingId = (level, text) => {
+    const id = slug(text);
+    if (headings) {
+      headings.push({ level, text: plainText(text), id });
+    }
+    return id;
+  };
+  return renderLines(lines, headingId);
+}
+
+function renderLines(lines, headingId) {
   const blocks = [];
   let list = null;
   let code = null;
@@ -47,7 +62,7 @@ export function renderMarkdown(markdown) {
 
   const closeQuote = () => {
     if (quote.length > 0) {
-      blocks.push(`<blockquote>${renderMarkdown(quote.join("\n"))}</blockquote>`);
+      blocks.push(`<blockquote>${renderLines(quote, headingId)}</blockquote>`);
       quote = [];
     }
   };
@@ -108,7 +123,7 @@ export function renderMarkdown(markdown) {
     if (heading) {
       closeText();
       const level = heading[1].length;
-      blocks.push(`<h${level}>${formatInline(heading[2])}</h${level}>`);
+      blocks.push(`<h${level} id="${headingId(level, heading[2])}">${formatInline(heading[2])}</h${level}>`);
       continue;
     }
 
@@ -193,9 +208,17 @@ function formatInline(value) {
 
   const inline = text
     .join("")
-    .replace(LINK, (match, label, url) => stash(`<a href="${url}" rel="noreferrer">${applyEmphasis(label)}</a>`));
+    .replace(LINK, (match, label, url) => renderLink(label, url, stash));
 
   return restoreTokens(applyEmphasis(inline), tokens);
+}
+
+function renderLink(label, rawUrl, stash) {
+  const url = safeUrl(rawUrl);
+  if (!url) {
+    return `[${label}](${escapeHtml(rawUrl)})`;
+  }
+  return stash(`<a href="${escapeHtml(url)}" rel="noreferrer noopener">${applyEmphasis(label)}</a>`);
 }
 
 function applyEmphasis(text) {

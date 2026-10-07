@@ -18,8 +18,15 @@ Open `http://127.0.0.1:3000`, upload a `.md` file and preview formatted Markdown
 - GitHub-flavoured tables with column alignment and task lists with checkboxes.
 - Syntax highlighting for fenced code blocks (JavaScript/TypeScript, JSON, CSS, HTML, shell, Python).
 - Dark/light mode toggle with system preference detection, persisted in `localStorage`.
+- Outline navigation built from the `h2`/`h3` headings, with the current section highlighted while scrolling.
+- Deep links: every heading gets a stable `#id` anchor, so a section can be shared and restored on reload.
+- Export: copy the rendered HTML to the clipboard, or print / save as PDF with a dedicated print stylesheet.
+- The last loaded document is restored from `localStorage` on reload; **Clear** empties it.
+- Four text sizes (`A-` / `A+`) persisted in `localStorage`, applied before the first paint.
+- Keyboard shortcuts, listed in the "Keyboard shortcuts" panel: `T` theme, `O` outline, `+`/`-` text size, `C` copy HTML, `P` print, `Esc` close the outline.
+- Links are sanitized through an explicit allow list (`http`, `https`, `mailto`, `tel` and relative urls); anything else stays as plain text.
 
-Everything runs in the browser with no dependencies: `src/markdown.js` parses Markdown, `src/highlight.js` highlights code, `src/frontmatter.js` reads metadata and `src/theme.js` handles the colour theme.
+Everything runs in the browser with no dependencies: `src/markdown.js` parses Markdown, `src/highlight.js` highlights code, `src/frontmatter.js` reads metadata, `src/toc.js` builds the outline, `src/sanitize.js` filters urls, `src/session.js` persists the document and `src/theme.js` handles the colour theme.
 
 ## Checks
 
