@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "node scripts/server.mjs",
+    "build": "node scripts/build.mjs",
     "lint": "node scripts/lint.mjs",
     "test": "node --test test/*.test.js",
     "test:e2e": "node --test test/e2e/*.test.js"
